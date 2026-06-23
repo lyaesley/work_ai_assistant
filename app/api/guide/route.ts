@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { GuideRequest, GuideResult } from '@/types/guide'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 
 const SYSTEM_PROMPT = `당신은 한국 직장인을 위한 업무 AI 비서입니다.
 사용자의 직책, 경력, 현재 상황을 바탕으로 실질적이고 실행 가능한 업무 가이드를 제공합니다.
@@ -154,6 +154,47 @@ export async function POST(req: NextRequest) {
   // 로그인 유저 확인
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+
+  // Rate limit 체크 (free 플랜만)
+  if (user) {
+    const { data: profile } = await supabase
+      .from('users')
+      .select('plan')
+      .eq('id', user.id)
+      .single()
+
+    const plan = profile?.plan ?? 'free'
+
+    if (plan === 'free') {
+      const adminClient = await createAdminClient()
+      const { data: config } = await adminClient
+        .from('app_config')
+        .select('value')
+        .eq('key', 'guide_rate_limit_seconds')
+        .single()
+
+      const limitSeconds = parseInt(config?.value ?? '60', 10)
+
+      const { data: lastSession } = await supabase
+        .from('guide_sessions')
+        .select('created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (lastSession) {
+        const secondsAgo = (Date.now() - new Date(lastSession.created_at).getTime()) / 1000
+        if (secondsAgo < limitSeconds) {
+          const remaining = Math.ceil(limitSeconds - secondsAgo)
+          return NextResponse.json(
+            { success: false, error: `${remaining}초 후 다시 시도할 수 있습니다.` },
+            { status: 429 }
+          )
+        }
+      }
+    }
+  }
 
   // API 키 없으면 mock 반환 (DB 저장 생략)
   if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes('여기에')) {

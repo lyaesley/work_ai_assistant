@@ -1,7 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const PROTECTED_ROUTES = ['/guide']
+const PROTECTED_ROUTES = ['/guide', '/admin', '/profile']
 const AUTH_ROUTES = ['/login', '/signup']
 
 export async function proxy(request: NextRequest) {

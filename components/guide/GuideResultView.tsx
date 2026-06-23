@@ -14,9 +14,10 @@ type Props = {
   onReset: () => void
   hideResetButton?: boolean
   sessionId?: string | null
+  readonly?: boolean  // true면 체크리스트 클릭 비활성화
 }
 
-export default function GuideResultView({ result, onReset, hideResetButton = false, sessionId }: Props) {
+export default function GuideResultView({ result, onReset, hideResetButton = false, sessionId, readonly = false }: Props) {
   const [checklist, setChecklist] = useState<DbChecklistItem[]>(() =>
     result.checklist.map((item, i) => ({
       id: String(i),
@@ -112,11 +113,16 @@ export default function GuideResultView({ result, onReset, hideResetButton = fal
           {checklist.map((item) => (
             <button
               key={item.id}
-              onClick={() => toggleCheck(item)}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+              onClick={() => !readonly && toggleCheck(item)}
+              disabled={readonly}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
+                readonly ? 'cursor-default' : 'hover:bg-gray-50'
+              }`}
             >
               <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                item.is_done ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
+                item.is_done
+                  ? 'bg-blue-600 border-blue-600'
+                  : readonly ? 'border-gray-200' : 'border-gray-300'
               }`}>
                 {item.is_done && (
                   <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">

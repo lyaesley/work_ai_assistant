@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 
 const ROLES = ['팀장', 'PM', 'PL', '부서장', '팀원', '구성원']
 const DOMAINS = ['IT 개발', '마케팅', '영업', '기획', '디자인', '운영', '인사', '재무', '기타']
@@ -9,6 +8,8 @@ const DOMAINS = ['IT 개발', '마케팅', '영업', '기획', '디자인', '운
 type Profile = {
   name: string
   defaultRole: string
+  customRole: string
+  useCustomRole: boolean
   domain: string
   careerYears: string
   teamSize: string
@@ -18,6 +19,8 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile>({
     name: '',
     defaultRole: '',
+    customRole: '',
+    useCustomRole: false,
     domain: '',
     careerYears: '',
     teamSize: '',
@@ -32,9 +35,12 @@ export default function ProfilePage() {
       .then((data) => {
         if (data.success && data.profile) {
           const p = data.profile
+          const isPreset = ROLES.includes(p.default_role ?? '')
           setProfile({
             name: p.name ?? '',
-            defaultRole: p.default_role ?? '',
+            defaultRole: isPreset ? (p.default_role ?? '') : '',
+            customRole: isPreset ? '' : (p.default_role ?? ''),
+            useCustomRole: !isPreset && !!p.default_role,
             domain: p.domain ?? '',
             careerYears: p.career_years?.toString() ?? '',
             teamSize: p.team_size?.toString() ?? '',
@@ -44,17 +50,27 @@ export default function ProfilePage() {
       .finally(() => setLoading(false))
   }, [])
 
+  function handleRoleChip(r: string) {
+    setProfile((p) => ({ ...p, defaultRole: p.defaultRole === r ? '' : r, useCustomRole: false, customRole: '' }))
+  }
+
+  function handleUseCustomRole() {
+    setProfile((p) => ({ ...p, useCustomRole: true, defaultRole: '' }))
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
     setSaved(false)
+
+    const effectiveRole = profile.useCustomRole ? profile.customRole : profile.defaultRole
 
     await fetch('/api/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: profile.name || null,
-        defaultRole: profile.defaultRole || null,
+        defaultRole: effectiveRole || null,
         domain: profile.domain || null,
         careerYears: profile.careerYears ? Number(profile.careerYears) : null,
         teamSize: profile.teamSize ? Number(profile.teamSize) : null,
@@ -76,15 +92,10 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      <div className="max-w-2xl mx-auto px-4 py-10">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">프로필 설정</h1>
-            <p className="text-gray-500 text-sm mt-1">저장된 정보는 가이드 요청 시 자동으로 사용됩니다</p>
-          </div>
-          <Link href="/guide" className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
-            ← 가이드로
-          </Link>
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        <div className="mb-6">
+          <h1 className="text-xl font-bold text-gray-900">프로필 설정</h1>
+          <p className="text-gray-500 text-sm mt-1">저장된 정보는 가이드 요청 시 자동으로 사용됩니다</p>
         </div>
 
         <form onSubmit={handleSave} className="bg-white border border-gray-200 rounded-2xl p-6 space-y-5">
@@ -108,9 +119,9 @@ export default function ProfilePage() {
                 <button
                   key={r}
                   type="button"
-                  onClick={() => setProfile((p) => ({ ...p, defaultRole: p.defaultRole === r ? '' : r }))}
+                  onClick={() => handleRoleChip(r)}
                   className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
-                    profile.defaultRole === r
+                    !profile.useCustomRole && profile.defaultRole === r
                       ? 'bg-blue-600 text-white border-blue-600'
                       : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
                   }`}
@@ -118,7 +129,28 @@ export default function ProfilePage() {
                   {r}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={handleUseCustomRole}
+                className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
+                  profile.useCustomRole
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                }`}
+              >
+                직접 입력
+              </button>
             </div>
+            {profile.useCustomRole && (
+              <input
+                type="text"
+                value={profile.customRole}
+                onChange={(e) => setProfile((p) => ({ ...p, customRole: e.target.value }))}
+                placeholder="예: 시니어 개발자, 스쿼드 리드..."
+                autoFocus
+                className="mt-2 w-full border border-blue-400 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            )}
           </div>
 
           {/* 업종 */}
