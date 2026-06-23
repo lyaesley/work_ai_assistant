@@ -48,6 +48,9 @@ export default function GuidePage() {
             <Link href="/history" className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
               히스토리
             </Link>
+            <Link href="/profile" className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
+              프로필
+            </Link>
             <button
               onClick={() => signOut()}
               className="text-sm text-gray-400 hover:text-gray-600 transition-colors"

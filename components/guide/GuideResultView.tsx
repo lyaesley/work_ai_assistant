@@ -18,9 +18,8 @@ type Props = {
 
 export default function GuideResultView({ result, onReset, hideResetButton = false, sessionId }: Props) {
   const [checklist, setChecklist] = useState<DbChecklistItem[]>([])
-  const [activeTab, setActiveTab] = useState<'오늘' | '이번 주' | '이번 달'>('오늘')
+  const [activeTab, setActiveTab] = useState<'지금 당장' | '이번 주'>('지금 당장')
 
-  // sessionId 있으면 DB에서 체크리스트 로드, 없으면 guide_result에서 초기화
   useEffect(() => {
     if (sessionId) {
       fetch(`/api/checklist?sessionId=${sessionId}`)
@@ -42,12 +41,10 @@ export default function GuideResultView({ result, onReset, hideResetButton = fal
   async function toggleCheck(item: DbChecklistItem) {
     const newDone = !item.is_done
 
-    // 낙관적 업데이트 (UI 즉시 반영)
     setChecklist((prev) =>
       prev.map((c) => (c.id === item.id ? { ...c, is_done: newDone } : c))
     )
 
-    // sessionId 있을 때만 DB 저장
     if (sessionId) {
       await fetch(`/api/checklist/${item.id}`, {
         method: 'PATCH',
@@ -57,15 +54,16 @@ export default function GuideResultView({ result, onReset, hideResetButton = fal
     }
   }
 
+  const tabs = ['지금 당장', '이번 주'] as const
   const filteredTasks = result.priority_tasks.filter((t) => t.period === activeTab)
-  const tabs = ['오늘', '이번 주', '이번 달'] as const
+  const doneCount = checklist.filter((c) => c.is_done).length
 
   return (
     <div className="space-y-6">
       {/* 요약 */}
       <div className="bg-blue-600 text-white rounded-2xl px-5 py-4">
-        <p className="text-xs font-medium opacity-80 mb-1">현재 상황 요약</p>
-        <p className="font-semibold">{result.summary}</p>
+        <p className="text-xs font-medium opacity-70 mb-1">현재 상황 요약</p>
+        <p className="font-semibold leading-snug">{result.summary}</p>
       </div>
 
       {/* 우선순위 태스크 */}
@@ -76,7 +74,7 @@ export default function GuideResultView({ result, onReset, hideResetButton = fal
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                 activeTab === tab
                   ? 'bg-blue-100 text-blue-700'
                   : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
@@ -88,12 +86,17 @@ export default function GuideResultView({ result, onReset, hideResetButton = fal
         </div>
         <div className="space-y-3">
           {filteredTasks.length === 0 ? (
-            <p className="text-gray-400 text-sm">이 기간의 태스크가 없습니다</p>
+            <p className="text-gray-400 text-sm px-1">이 기간의 태스크가 없습니다</p>
           ) : (
             filteredTasks.map((task, i) => (
               <div key={i} className="bg-white border border-gray-200 rounded-xl px-4 py-3">
-                <p className="font-medium text-gray-900 text-sm">{task.task}</p>
-                <p className="text-gray-400 text-xs mt-1">{task.reason}</p>
+                <div className="flex items-start gap-2">
+                  <span className="text-xs font-semibold text-blue-500 mt-0.5 shrink-0">{i + 1}</span>
+                  <div>
+                    <p className="font-medium text-gray-900 text-sm">{task.task}</p>
+                    <p className="text-gray-400 text-xs mt-1">{task.reason}</p>
+                  </div>
+                </div>
               </div>
             ))
           )}
@@ -102,7 +105,12 @@ export default function GuideResultView({ result, onReset, hideResetButton = fal
 
       {/* 체크리스트 */}
       <div>
-        <h2 className="text-sm font-semibold text-gray-700 mb-3">체크리스트</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-gray-700">체크리스트</h2>
+          {checklist.length > 0 && (
+            <span className="text-xs text-gray-400">{doneCount}/{checklist.length} 완료</span>
+          )}
+        </div>
         <div className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100">
           {checklist.map((item) => (
             <button
@@ -119,10 +127,24 @@ export default function GuideResultView({ result, onReset, hideResetButton = fal
                   </svg>
                 )}
               </div>
-              <span className={`text-sm ${item.is_done ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+              <span className={`text-sm leading-snug ${item.is_done ? 'line-through text-gray-400' : 'text-gray-700'}`}>
                 {item.item}
               </span>
             </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 성공 기준 */}
+      <div>
+        <h2 className="text-sm font-semibold text-gray-700 mb-1">✅ 성공 기준</h2>
+        <p className="text-xs text-gray-400 mb-3">이 상황을 잘 처리했다면 이런 상태여야 합니다</p>
+        <div className="space-y-2">
+          {(result.success_criteria ?? []).map((c, i) => (
+            <div key={i} className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-start gap-2">
+              <span className="text-green-500 text-sm font-bold shrink-0">{i + 1}</span>
+              <p className="text-green-800 text-sm leading-snug">{c}</p>
+            </div>
           ))}
         </div>
       </div>
@@ -132,7 +154,7 @@ export default function GuideResultView({ result, onReset, hideResetButton = fal
         <h2 className="text-sm font-semibold text-gray-700 mb-3">⚠️ 흔한 실수</h2>
         <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 space-y-2">
           {result.watch_out.map((w, i) => (
-            <p key={i} className="text-orange-700 text-sm">• {w}</p>
+            <p key={i} className="text-orange-700 text-sm leading-snug">• {w}</p>
           ))}
         </div>
       </div>
@@ -149,20 +171,6 @@ export default function GuideResultView({ result, onReset, hideResetButton = fal
         </div>
       </div>
 
-      {/* 4주 플랜 */}
-      <div>
-        <h2 className="text-sm font-semibold text-gray-700 mb-3">📅 4주 플랜</h2>
-        <div className="grid grid-cols-2 gap-3">
-          {Object.entries(result.week_plan).map(([week, goal], i) => (
-            <div key={week} className="bg-white border border-gray-200 rounded-xl px-4 py-3">
-              <p className="text-xs font-semibold text-blue-600 mb-1">{i + 1}주차</p>
-              <p className="text-gray-700 text-sm">{goal}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 다시 하기 */}
       {!hideResetButton && (
         <button
           onClick={onReset}
