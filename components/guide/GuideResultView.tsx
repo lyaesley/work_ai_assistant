@@ -17,26 +17,23 @@ type Props = {
 }
 
 export default function GuideResultView({ result, onReset, hideResetButton = false, sessionId }: Props) {
-  const [checklist, setChecklist] = useState<DbChecklistItem[]>([])
+  const [checklist, setChecklist] = useState<DbChecklistItem[]>(() =>
+    result.checklist.map((item, i) => ({
+      id: String(i),
+      item: item.item,
+      is_done: false,
+    }))
+  )
   const [activeTab, setActiveTab] = useState<'지금 당장' | '이번 주'>('지금 당장')
 
   useEffect(() => {
-    if (sessionId) {
-      fetch(`/api/checklist?sessionId=${sessionId}`)
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.success) setChecklist(data.items)
-        })
-    } else {
-      setChecklist(
-        result.checklist.map((item, i) => ({
-          id: String(i),
-          item: item.item,
-          is_done: false,
-        }))
-      )
-    }
-  }, [sessionId, result.checklist])
+    if (!sessionId) return
+    fetch(`/api/checklist?sessionId=${sessionId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) setChecklist(data.items)
+      })
+  }, [sessionId])
 
   async function toggleCheck(item: DbChecklistItem) {
     const newDone = !item.is_done
