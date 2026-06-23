@@ -47,7 +47,7 @@ export async function GET() {
   // HistoryList 포맷으로 변환 (user_email 플랫화)
   const recentSessions = (recentRes.data ?? []).map(({ users, ...s }) => ({
     ...s,
-    user_email: (users as { email: string } | null)?.email,
+    user_email: (users as unknown as { email: string } | null)?.email,
   }))
 
   return NextResponse.json({
