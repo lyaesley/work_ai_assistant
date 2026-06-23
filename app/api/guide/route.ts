@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { GuideRequest, GuideResult } from '@/types/guide'
+import { createClient } from '@/lib/supabase/server'
 
 const SYSTEM_PROMPT = `당신은 한국 직장인을 위한 업무 AI 비서입니다.
 사용자의 직책, 경력, 현재 상황을 바탕으로 실질적이고 실행 가능한 업무 가이드를 제공합니다.
@@ -83,6 +84,56 @@ const MOCK_RESPONSE: GuideResult = {
   },
 }
 
+async function saveGuideSession(
+  userId: string,
+  body: GuideRequest,
+  guide: GuideResult,
+  tokensUsed?: number
+): Promise<string | null> {
+  const supabase = await createClient()
+
+  // guide_sessions 저장
+  const { data: session, error: sessionError } = await supabase
+    .from('guide_sessions')
+    .insert({
+      user_id: userId,
+      role: body.role,
+      situation: body.situation,
+      team_size: body.teamSize ?? null,
+      domain: body.domain ?? null,
+      career_years: body.careerYears ?? null,
+      main_concern: body.mainConcern ?? null,
+      guide_result: guide,
+      tokens_used: tokensUsed ?? null,
+    })
+    .select('id')
+    .single()
+
+  if (sessionError || !session) {
+    console.error('[Guide API] guide_sessions 저장 실패:', sessionError?.message)
+    return null
+  }
+
+  // checklist_items 저장
+  const checklistRows = guide.checklist.map((item) => ({
+    guide_session_id: session.id,
+    user_id: userId,
+    item: item.item,
+    is_done: false,
+  }))
+
+  const { error: checklistError } = await supabase
+    .from('checklist_items')
+    .insert(checklistRows)
+
+  if (checklistError) {
+    console.error('[Guide API] checklist_items 저장 실패:', checklistError.message)
+  }
+
+  console.log(`[Guide API] DB 저장 완료 - session_id: ${session.id}`)
+  return session.id
+}
+
 export async function POST(req: NextRequest) {
   const body: GuideRequest = await req.json()
   const { role, situation, teamSize, domain, careerYears, mainConcern } = body
@@ -94,9 +145,13 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // API 키 없으면 mock 반환
+  // 로그인 유저 확인
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // API 키 없으면 mock 반환 (DB 저장 생략)
   if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes('여기에')) {
-    await new Promise((r) => setTimeout(r, 1000)) // 로딩 UX 시뮬레이션
+    await new Promise((r) => setTimeout(r, 1000))
     return NextResponse.json({ success: true, guide: MOCK_RESPONSE, isMock: true })
   }
 
@@ -115,6 +170,7 @@ export async function POST(req: NextRequest) {
 위 내용을 바탕으로 지금 당장 집중해야 할 것을 우선순위 순서로 가이드해주세요.`
 
   try {
+    console.log(`[Guide API] OpenAI 호출 - role: ${role}, situation: ${situation}`)
     const completion = await client.chat.completions.create({
       model: 'gpt-4o',
       messages: [
@@ -127,8 +183,17 @@ export async function POST(req: NextRequest) {
 
     const text = completion.choices[0].message.content ?? ''
     const guide: GuideResult = JSON.parse(text)
+    const tokensUsed = completion.usage?.total_tokens
 
-    return NextResponse.json({ success: true, guide })
+    console.log(`[Guide API] 응답 완료 - tokens: ${tokensUsed}`)
+
+    // 로그인 유저면 DB 저장
+    let sessionId: string | null = null
+    if (user) {
+      sessionId = await saveGuideSession(user.id, body, guide, tokensUsed)
+    }
+
+    return NextResponse.json({ success: true, guide, sessionId })
   } catch (error) {
     console.error('Guide API error:', error)
     return NextResponse.json(

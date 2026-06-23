@@ -1,21 +1,60 @@
 'use client'
 
-import { useState } from 'react'
-import { GuideResult, ChecklistItem } from '@/types/guide'
+import { useState, useEffect } from 'react'
+import { GuideResult } from '@/types/guide'
+
+type DbChecklistItem = {
+  id: string
+  item: string
+  is_done: boolean
+}
 
 type Props = {
   result: GuideResult
   onReset: () => void
+  hideResetButton?: boolean
+  sessionId?: string | null
 }
 
-export default function GuideResultView({ result, onReset }: Props) {
-  const [checklist, setChecklist] = useState<ChecklistItem[]>(result.checklist)
+export default function GuideResultView({ result, onReset, hideResetButton = false, sessionId }: Props) {
+  const [checklist, setChecklist] = useState<DbChecklistItem[]>([])
   const [activeTab, setActiveTab] = useState<'오늘' | '이번 주' | '이번 달'>('오늘')
 
-  function toggleCheck(index: number) {
+  // sessionId 있으면 DB에서 체크리스트 로드, 없으면 guide_result에서 초기화
+  useEffect(() => {
+    if (sessionId) {
+      fetch(`/api/checklist?sessionId=${sessionId}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.success) setChecklist(data.items)
+        })
+    } else {
+      setChecklist(
+        result.checklist.map((item, i) => ({
+          id: String(i),
+          item: item.item,
+          is_done: false,
+        }))
+      )
+    }
+  }, [sessionId, result.checklist])
+
+  async function toggleCheck(item: DbChecklistItem) {
+    const newDone = !item.is_done
+
+    // 낙관적 업데이트 (UI 즉시 반영)
     setChecklist((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, done: !item.done } : item))
+      prev.map((c) => (c.id === item.id ? { ...c, is_done: newDone } : c))
     )
+
+    // sessionId 있을 때만 DB 저장
+    if (sessionId) {
+      await fetch(`/api/checklist/${item.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isDone: newDone }),
+      })
+    }
   }
 
   const filteredTasks = result.priority_tasks.filter((t) => t.period === activeTab)
@@ -65,22 +104,22 @@ export default function GuideResultView({ result, onReset }: Props) {
       <div>
         <h2 className="text-sm font-semibold text-gray-700 mb-3">체크리스트</h2>
         <div className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100">
-          {checklist.map((item, i) => (
+          {checklist.map((item) => (
             <button
-              key={i}
-              onClick={() => toggleCheck(i)}
+              key={item.id}
+              onClick={() => toggleCheck(item)}
               className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors"
             >
               <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                item.done ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
+                item.is_done ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
               }`}>
-                {item.done && (
+                {item.is_done && (
                   <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                   </svg>
                 )}
               </div>
-              <span className={`text-sm ${item.done ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+              <span className={`text-sm ${item.is_done ? 'line-through text-gray-400' : 'text-gray-700'}`}>
                 {item.item}
               </span>
             </button>
@@ -124,12 +163,14 @@ export default function GuideResultView({ result, onReset }: Props) {
       </div>
 
       {/* 다시 하기 */}
-      <button
-        onClick={onReset}
-        className="w-full border border-gray-300 text-gray-600 py-3 rounded-xl font-medium text-sm hover:bg-gray-50 transition-colors"
-      >
-        새 가이드 받기
-      </button>
+      {!hideResetButton && (
+        <button
+          onClick={onReset}
+          className="w-full border border-gray-300 text-gray-600 py-3 rounded-xl font-medium text-sm hover:bg-gray-50 transition-colors"
+        >
+          새 가이드 받기
+        </button>
+      )}
     </div>
   )
 }

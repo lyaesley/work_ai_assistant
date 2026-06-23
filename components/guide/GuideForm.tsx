@@ -104,7 +104,7 @@ export default function GuideForm({ onSubmit, loading, error }: Props) {
             onChange={(e) => setTeamSize(e.target.value)}
             placeholder="예: 5"
             min={1}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
         <div>
@@ -115,7 +115,7 @@ export default function GuideForm({ onSubmit, loading, error }: Props) {
             onChange={(e) => setCareerYears(e.target.value)}
             placeholder="예: 7"
             min={0}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
       </div>
@@ -125,7 +125,7 @@ export default function GuideForm({ onSubmit, loading, error }: Props) {
         <select
           value={domain}
           onChange={(e) => setDomain(e.target.value)}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">선택 안 함</option>
           {DOMAINS.map((d) => <option key={d} value={d}>{d}</option>)}
@@ -139,7 +139,7 @@ export default function GuideForm({ onSubmit, loading, error }: Props) {
           onChange={(e) => setMainConcern(e.target.value)}
           placeholder="예: 팀원 동기 부여가 어렵습니다"
           rows={3}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
         />
       </div>
 
