@@ -21,9 +21,10 @@ type Props = {
   sessions: Session[]
   initialExpandedId?: string  // 처음부터 펼쳐둘 카드 ID
   readonly?: boolean           // true면 체크리스트 비활성화 (어드민 뷰 등)
+  showChat?: boolean           // true면 더 물어보기 채팅 표시 (가이드 결과 페이지 전용)
 }
 
-export default function HistoryList({ sessions, initialExpandedId, readonly = false }: Props) {
+export default function HistoryList({ sessions, initialExpandedId, readonly = false, showChat = false }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(initialExpandedId ?? null)
 
   if (sessions.length === 0) {
@@ -155,6 +156,13 @@ export default function HistoryList({ sessions, initialExpandedId, readonly = fa
                     hideResetButton
                     sessionId={readonly ? null : session.id}
                     readonly={readonly}
+                    chatContext={showChat ? {
+                      role: session.role,
+                      situation: session.situation,
+                      domain: session.domain,
+                      careerYears: session.career_years,
+                      teamSize: session.team_size,
+                    } : undefined}
                   />
                 </div>
               </div>

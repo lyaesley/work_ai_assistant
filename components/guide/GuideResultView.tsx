@@ -2,11 +2,20 @@
 
 import { useState, useEffect } from 'react'
 import { GuideResult } from '@/types/guide'
+import GuideChat from '@/components/guide/GuideChat'
 
 type DbChecklistItem = {
   id: string
   item: string
   is_done: boolean
+}
+
+type ChatContext = {
+  role: string
+  situation: string
+  domain?: string | null
+  careerYears?: number | null
+  teamSize?: number | null
 }
 
 type Props = {
@@ -15,9 +24,10 @@ type Props = {
   hideResetButton?: boolean
   sessionId?: string | null
   readonly?: boolean  // true면 체크리스트 클릭 비활성화
+  chatContext?: ChatContext  // 있으면 하단에 더 물어보기 채팅 표시
 }
 
-export default function GuideResultView({ result, onReset, hideResetButton = false, sessionId, readonly = false }: Props) {
+export default function GuideResultView({ result, onReset, hideResetButton = false, sessionId, readonly = false, chatContext }: Props) {
   const [checklist, setChecklist] = useState<DbChecklistItem[]>(() =>
     result.checklist.map((item, i) => ({
       id: String(i),
@@ -173,6 +183,11 @@ export default function GuideResultView({ result, onReset, hideResetButton = fal
           ))}
         </div>
       </div>
+
+      {/* 더 물어보기 채팅 (chatContext 없으면 숨김) */}
+      {chatContext && (
+        <GuideChat context={chatContext} />
+      )}
 
       {!hideResetButton && (
         <button
