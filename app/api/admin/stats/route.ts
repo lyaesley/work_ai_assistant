@@ -24,8 +24,11 @@ export async function GET() {
   const users = usersRes.data ?? []
   const sessions = sessionsRes.data ?? []
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  // KST(UTC+9) 기준 오늘 자정 계산
+  const KST_OFFSET = 9 * 60 * 60 * 1000
+  const nowKST = new Date(Date.now() + KST_OFFSET)
+  nowKST.setUTCHours(0, 0, 0, 0)
+  const todayKSTStart = new Date(nowKST.getTime() - KST_OFFSET) // UTC 기준으로 변환
 
   const userStats = {
     total: users.length,
@@ -36,11 +39,12 @@ export async function GET() {
 
   const sessionStats = {
     total: sessions.length,
-    today: sessions.filter((s) => new Date(s.created_at) >= today).length,
+    today: sessions.filter((s) => new Date(s.created_at) >= todayKSTStart).length,
     thisWeek: sessions.filter((s) => {
-      const weekAgo = new Date()
-      weekAgo.setDate(weekAgo.getDate() - 7)
-      return new Date(s.created_at) >= weekAgo
+      const weekAgo = new Date(Date.now() + KST_OFFSET)
+      weekAgo.setUTCHours(0, 0, 0, 0)
+      weekAgo.setUTCDate(weekAgo.getUTCDate() - 7)
+      return new Date(s.created_at) >= new Date(weekAgo.getTime() - KST_OFFSET)
     }).length,
   }
 
